@@ -1,0 +1,173 @@
+{
+  "_meta": {
+    "source_url": "https://www.fmz.com/robot/680665",
+    "captured_at_cst": "2026-11-16T23:33:00+08:00",
+    "capture_method": "browser automation, read-only DOM",
+    "note": "Public robot page snapshot, NOT strategy source code. Values are point-in-time observations.",
+    "login_state": "not logged in; no in-site copy/clone control present"
+  },
+  "identity": {
+    "robot_name": "上海天气概率与预测市场（信号+模拟+实盘）",
+    "bound_strategy_name": "上海天气概率与预测市场（信号+模拟+实盘）",
+    "bound_strategy_id": null,
+    "author": "ianzeng123",
+    "author_path": "/user/5b5af9ca45caa814184d2e80e1b1cf66",
+    "exchange": "Futures_Polymarket",
+    "account": "MARKET_USDC",
+    "account_type": "模拟账户",
+    "underlying": "上海浦东机场最高温 × Polymarket 温度档市场",
+    "kline_period": "1d",
+    "running_days": 29,
+    "last_started_at": "2026-10-21 10:56:44",
+    "views": 278,
+    "status_updated_at": "2026-11-16 15:23:41"
+  },
+  "data_sources": {
+    "weather": {
+      "provider": "Open-Meteo",
+      "endpoint": "https://api.open-meteo.com/v1/forecast",
+      "latitude": 31.1443,
+      "longitude": 121.8083,
+      "hourly": [
+        "temperature_2m", "dew_point_2m", "cloud_cover",
+        "shortwave_radiation", "wind_speed_10m",
+        "wind_direction_10m", "precipitation"
+      ],
+      "forecast_days": 3,
+      "timezone": "Asia/Shanghai",
+      "models": ["ecmwf_ifs025", "gfs_global", "cma_grapes_global", "jma_seamless"],
+      "http_timeout_ms": 20000,
+      "failure_behavior": "四模型不足时当日扫描失败，不生成信号"
+    },
+    "market": {
+      "provider": "Polymarket",
+      "note": "盘口买卖价 / 隐含概率 / 温度档位，通过 Futures_Polymarket 接入"
+    }
+  },
+  "model": {
+    "raw_equal_weight_center_c": 17.23,
+    "bias_calibrated_center_c": 18.29,
+    "enhanced_center_c": 17.94,
+    "error_scale_c": 0.8,
+    "model_disagreement_c": 0.9,
+    "per_model_forecast_c": {
+      "ECMWF": 17.8, "GFS": 17.3, "CMA": 16.9, "JMA": 16.9
+    },
+    "enhanced_regression": {
+      "window": "2025-05-25 ~ 2026-11-15",
+      "status": "可用",
+      "training_days": 540,
+      "all_four_models_days": 463,
+      "ridge_param": 3,
+      "walk_forward_mae_180d_c": 0.76,
+      "raw_equal_weight_mae_180d_c": 1.571,
+      "out_of_sample_bucket_hit": "45%",
+      "error_scale_formula": "sqrt(0.4994 + 0.072 * disagreement^2) C",
+      "updated_at": "2026-11-16 03:44:19"
+    },
+    "rolling_calibration": {
+      "window": "2026-09-17 ~ 2026-11-15",
+      "status": "可用",
+      "valid_sample_days": 60,
+      "raw_equal_weight_bias_c": -1.055,
+      "calibrated_rmse_c": 0.98,
+      "in_sample_bucket_hit": "25%",
+      "updated_at": "2026-11-16 03:44:19",
+      "per_model_bias_rmse": {
+        "ecmwf_ifs025": {"bias_c": -0.497, "rmse_c": 1.224, "samples": 60},
+        "gfs_global": {"bias_c": -1.075, "rmse_c": 1.479, "samples": 60},
+        "cma_grapes_global": {"bias_c": -1.288, "rmse_c": 1.84, "samples": 60},
+        "jma_seamless": {"bias_c": -1.36, "rmse_c": 2.049, "samples": 60}
+      }
+    }
+  },
+  "risk": {
+    "daily_realized_usd": 1.65,
+    "daily_loss_limit_usd": -5,
+    "consecutive_loss_count": 0,
+    "consecutive_loss_limit": 3,
+    "drawdown_halt_pct": 30,
+    "status": "正常"
+  },
+  "entry_rules": {
+    "max_buckets_per_combo": 3,
+    "probability_threshold_pct": {"24h": 55, "12h": 50, "6h": 50, "3h": 52},
+    "net_edge_threshold_pct": {"24h": 5, "12h": 3, "6h": 2, "3h": 2},
+    "must_include_market_mode": true,
+    "mode_gap_max_c": 2,
+    "extreme_disagreement_observe_only_c": 6,
+    "market_blend_weight_cap_pct": 85,
+    "consecutive_confirmations": 2,
+    "fee_reserve_pct": 1,
+    "slippage_reserve_pct": 0.5
+  },
+  "current_signal": {
+    "date_layer": "2026-11-17 24h",
+    "sampled_at": "2026-11-16 15:23:40",
+    "weather_mode": "18°C",
+    "weather_probability_pct": 46.7,
+    "market_mode": "18°C",
+    "market_implied_probability_pct": 64.7,
+    "mode_gap_c": 0,
+    "best_combo": "16°C + 17°C",
+    "combo_weather_probability_pct": 29.1,
+    "blended_probability_for_threshold_pct": 19.0,
+    "market_probability_pct": 15,
+    "market_blend_weight_pct": 55,
+    "net_edge_pct": 11.3,
+    "cost_usd_per_10_shares_per_bucket": 1.756,
+    "verdict": "未达标：融合概率不足 19%；未包含盘口众数档 18°C",
+    "buckets": [
+      {"bucket": "13°C or below", "weather_pct": 0.0, "market_pct": 0.0, "blend_pct": 0.0, "diff_pct": 0.0, "bid": null, "ask": null, "spread": "过期"},
+      {"bucket": "14°C", "weather_pct": 0.0, "market_pct": 0.0, "blend_pct": 0.0, "diff_pct": 0.0, "bid": null, "ask": 0.001, "spread": "单边"},
+      {"bucket": "15°C", "weather_pct": 0.1, "market_pct": 0.1, "blend_pct": 0.1, "diff_pct": 0.0, "bid": null, "ask": 0.002, "spread": "单边"},
+      {"bucket": "16°C", "weather_pct": 3.5, "market_pct": 1.6, "blend_pct": 1.9, "diff_pct": 1.9, "bid": 0.01, "ask": 0.023, "spread": 0.013},
+      {"bucket": "17°C", "weather_pct": 25.6, "market_pct": 13.3, "blend_pct": 17.1, "diff_pct": 12.3, "bid": 0.12, "ask": 0.15, "spread": 0.03},
+      {"bucket": "18°C", "is_mode": true, "weather_pct": 46.7, "market_pct": 64.7, "blend_pct": 59.0, "diff_pct": -18.0, "bid": 0.64, "ask": 0.67, "spread": 0.03},
+      {"bucket": "19°C", "weather_pct": 21.6, "market_pct": 17.3, "blend_pct": 19.3, "diff_pct": 4.3, "bid": 0.16, "ask": 0.19, "spread": 0.03},
+      {"bucket": "20°C", "weather_pct": 2.5, "market_pct": 2.5, "blend_pct": 2.5, "diff_pct": 0.0, "bid": 0.021, "ask": 0.029, "spread": 0.008},
+      {"bucket": "21°C", "weather_pct": 0.1, "market_pct": 0.4, "blend_pct": 0.2, "diff_pct": -0.4, "bid": 0.003, "ask": 0.006, "spread": 0.003},
+      {"bucket": "22°C", "weather_pct": 0.0, "market_pct": 0.0, "blend_pct": 0.0, "diff_pct": 0.0, "bid": null, "ask": null, "spread": "过期"},
+      {"bucket": "23°C or higher", "weather_pct": 0.0, "market_pct": 0.0, "blend_pct": 0.0, "diff_pct": 0.0, "bid": null, "ask": null, "spread": "过期"}
+    ]
+  },
+  "positions": [
+    {
+      "date_layer": "2026-11-16_24h",
+      "combo": "18°C + 19°C",
+      "shares_per_bucket": 7,
+      "cost": 4.947,
+      "sellable_value": 0.0,
+      "floating_pnl": -4.947,
+      "entry_weather_probability_pct": 78.8,
+      "entry_net_edge_pct": 7.4
+    }
+  ],
+  "performance": {
+    "equity_usd": 76.27,
+    "equity_change_pct": 52.54,
+    "initial_capital": 50,
+    "cost_basis": 81.22,
+    "settled_net_pnl_usd": 31.22,
+    "settled_trades": 24,
+    "winning_trades": 20,
+    "win_rate_pct": 55.0,
+    "floating_pnl_usd": -4.95,
+    "forecast_bias_c": 0.87,
+    "verified_days": 26,
+    "verified_mae_c": 0.93,
+    "market_mode_hit_pct": 100,
+    "weather_mode_hit_pct": 73,
+    "total_score": 6.36,
+    "subscores": {"sharpe": 8.31, "capital": 1.09, "profit": 9.99, "drawdown": 6.32, "runtime": 3.91},
+    "return_overview": 26.2724
+  },
+  "not_available": [
+    "strategy source code / language / version",
+    "bound strategy id or public strategy link",
+    "exact blend probability formula, cost model, weight solving, confirmation window",
+    "Polymarket order execution and auth details",
+    "full paginated history (1550 overview rows, 2052 log rows, 28 calibration rows, chart series)",
+    "live vs simulated parameter differences"
+  ]
+}
