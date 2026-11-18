@@ -174,7 +174,17 @@ def process_capture(raw, capture_path, settings, strategy, strategy_raw, ledger,
         snapshot = live_snapshot(raw, model, layer)
         baseline_forecast = model.predict(raw["forecast"]["models_c"])
         _, correction = correct_forecast(raw, baseline_forecast, snapshot.observed_max_c)
-        hourly_shadow = hourly_tmax_shadow(raw, baseline_forecast, snapshot.observed_max_c)
+        # Auxiliary research must never veto the existing Paper evaluation.
+        try:
+            hourly_shadow = hourly_tmax_shadow(raw, baseline_forecast, snapshot.observed_max_c)
+        except Exception:
+            LOGGER.exception("non-trading hourly shadow failed; Paper path continues")
+            hourly_shadow = {
+                "schema": "weather99.hourly_shadow.v1",
+                "status": "shadow_computation_failed",
+                "trade_eligible": False,
+                "hours": [],
+            }
         if correction["status"] == "applied":
             with AuditStore(audit_path) as store:
                 store.register(snapshot.forecast.model_version, "intraday_correction", {

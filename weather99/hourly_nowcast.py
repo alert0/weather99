@@ -37,6 +37,7 @@ def _model_hourly_rows(raw: dict, target: str, as_of: datetime):
         return [], 0
     rows, missing_future = [], 0
     for index, instant in enumerate(hourly.get("time") or []):
+        moment = None
         try:
             moment = datetime.fromisoformat(str(instant))
             if moment.tzinfo is None:
@@ -53,7 +54,7 @@ def _model_hourly_rows(raw: dict, target: str, as_of: datetime):
                 values[model] = float(value)
             rows.append((moment, values))
         except (ValueError, KeyError, IndexError, TypeError, OverflowError):
-            if "moment" in locals() and moment > as_of and moment.astimezone(SHANGHAI).date().isoformat() == target:
+            if moment is not None and moment > as_of and moment.astimezone(SHANGHAI).date().isoformat() == target:
                 missing_future += 1
             continue
     rows.sort(key=lambda item: item[0])
