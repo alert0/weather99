@@ -50,6 +50,7 @@ def scan_view(row, run_dir):
         "models": raw.get("forecast", {}).get("models_c", {}),
         "realtime": realtime_sources(raw) if raw.get("collected_at") else {},
         "correction": row.get("correction"),
+        "hourly_shadow": row.get("hourly_shadow"),
         "settlement": raw.get("settlement") or {"status": "not_collected", "observations": []},
         "quotes": quotes,
         "confirmation_count": row.get("confirmation_count", 0),
