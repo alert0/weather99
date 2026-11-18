@@ -77,6 +77,7 @@ function probabilityCell(value, market, name) {
 
 function renderMarket() {
   const scan = selectedScan();
+  window.renderHourly(scan);
   renderDecision(scan);
   renderRealtime(scan);
   if (!scan) {
@@ -87,7 +88,7 @@ function renderMarket() {
   }
   $('quote-time').textContent = `${scan.date} 市场 · 采集 ${time(scan.collected_at)}`;
   $('model-values').innerHTML = Object.entries(models).map(([key, [name, description]]) => `
-    <div class="model-tile"><span>${name}</span><strong>${number(scan.models[key], 1)} ℃</strong><small>${description}</small></div>`).join('');
+    <div class="model-tile"><span>${name} 日最高温</span><strong>${number(scan.models[key], 1)} ℃</strong><small>${description}</small></div>`).join('');
   $('quote-rows').innerHTML = scan.quotes.length ? scan.quotes.map(quote => {
     const name = label(quote.label);
     return `<tr${quote.market_mode ? ' class="hot"' : ''}>
@@ -98,7 +99,9 @@ function renderMarket() {
       <td data-label="卖一价">${quote.ask == null ? '<span class="no-quote">无报价</span>' : number(quote.ask, 3)}</td>
       <td data-label="档位标记">${quote.market_mode ? '<span class="tag">市场热门</span>' : ''}${quote.candidate ? '<span class="tag neutral">展示候选</span>' : ''}${!quote.market_mode && !quote.candidate ? '—' : ''}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" class="empty">该日期暂无盘口记录</td></tr>';
+  }).join('') : `<tr><td colspan="6" class="empty">${scan.market_source_failed
+    ? 'Polymarket 市场接口采集失败，暂时无法获取温度档及报价。'
+    : '该日期暂无盘口记录。'}</td></tr>`;
 }
 
 function drawChart(history) {
@@ -141,14 +144,6 @@ function renderRealtime(scan) {
     : correction?.status === 'not_target_day' ? '该市场不是今天：当前观测仅供参考，不校正其他日期。'
     : correction ? '未校正：缺少新鲜且与四模型小时预报对齐的观测。'
     : '该轮没有校正记录；显示原始观测供核对，等待新一轮采集评估。';
-  const shadow = scan?.hourly_shadow;
-  $('hourly-shadow-summary').textContent = shadow?.status === 'shadow_ready'
-    ? `ZSPD 已观测最高 ${number(shadow.observed_high_c, 1)} ℃ · 四模型修正后剩余峰值 ${number(shadow.predicted_remaining_peak_c, 2)} ℃ · 最终最高温参考预测 ${number(shadow.predicted_final_high_c, 2)} ℃。和风网格${shadow.qweather_used ? '已辅助' : '未参与'}；该结果不参与 Paper 下单。`
-    : shadow ? `Shadow 暂不计算：${shadow.status}。缺少必要的新鲜机场观测或完整小时曲线，不进行插值补造。`
-    : '本轮暂无逐小时 Shadow 计算记录。';
-  $('hourly-shadow-rows').innerHTML = shadow?.status === 'shadow_ready' && shadow.hours?.length
-    ? shadow.hours.map(hour => `<tr><td>${esc(time(hour.valid_at))}</td><td>${number(hour.model_mean_c, 2)} ℃</td><td>${number(hour.corrected_mean_c, 2)} ℃</td><td>${number(hour.shift_c, 2)} ℃</td></tr>`).join('')
-    : '<tr><td colspan="4" class="empty">暂无可用的当日未来小时预报</td></tr>';
 }
 
 function renderWeather(weather) {
@@ -184,7 +179,9 @@ function renderLogs() {
 function render(result) {
   data = result;
   const account = data.account || {};
-  $('health').textContent = data.healthy ? '采集进程正常' : data.phase === 'not_started' ? '尚未启动' : '采集进程离线';
+  $('health').textContent = data.healthy ? '采集进程在线' : ({
+    not_started: '尚未启动', stopped: '采集已停止',
+  })[data.phase] || '采集进程离线';
   $('health').className = `status-pill${data.healthy ? '' : ' warn'}`;
   $('clock').textContent = time(data.server_time);
   $('phase').textContent = ({waiting: '等待下一轮', collecting: '采集评估中', stopped: '已停止', not_started: '未启动'})[data.phase] || '未知';
@@ -200,11 +197,16 @@ function render(result) {
   $('model-note').textContent = data.model_mode === 'trained'
     ? '使用历史训练模型制品。天气概率仍为模型估计。'
     : '四模型等权基线，尚未做历史偏差校准。天气概率仅为模型估计。';
-  const signature = data.scans.map(scan => scan.date).join(',');
+  const today = new Date(Date.parse(data.server_time) + 8 * 3600000).toISOString().slice(0, 10);
+  const signature = [today, ...data.scans.map(scan => scan.date)].join(',');
   if (signature !== dateOptions) {
-    const previous = $('date-select').value;
-    $('date-select').replaceChildren(...data.scans.map(scan => new Option(scan.date, scan.date)));
-    if (data.scans.some(scan => scan.date === previous)) $('date-select').value = previous;
+    const select = $('date-select');
+    const previous = select.value;
+    select.replaceChildren(...(data.scans.length
+      ? data.scans.map(scan => new Option(scan.date === today ? `今天 · ${scan.date}` : scan.date, scan.date))
+      : [new Option('等待采集', '')]));
+    if (data.scans.some(scan => scan.date === previous)) select.value = previous;
+    else if (data.scans.some(scan => scan.date === today)) select.value = today;
     dateOptions = signature;
   }
   $('date-select').disabled = !data.scans.length;

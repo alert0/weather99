@@ -2,14 +2,17 @@
 
 import json
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from statistics import fmean
 from urllib.parse import urlsplit
 
 from .paper import DEFAULT_RUN_DIR, status
 from .paper_report import evaluation_context, evaluation_lines, explain
+from .hourly_nowcast import model_hourly_rows
 from .nowcast import realtime_sources
+from .settlement import metar_evidence
 
 ASSETS = Path(__file__).with_name("web_assets")
 
@@ -19,6 +22,33 @@ def read_json(path):
         return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError):
         return {}
+
+
+def hourly_view(raw, target):
+    if not raw.get("collected_at"):
+        return {"forecast_at": None, "hours": [], "observations": []}
+    sources = raw.get("sources", {})
+    forecast = sources.get("forecast", {})
+    station = sources.get("observation", {})
+    rows = model_hourly_rows(raw, date.fromisoformat(target)) if not forecast.get("error") else []
+    settlement = raw.get("settlement") or {}
+    if settlement.get("rules_verified") and settlement.get("observations"):
+        observations = settlement["observations"]
+    else:
+        observations = metar_evidence(
+            station.get("data") if not station.get("error") else None, target, raw["collected_at"]
+        )["observations"]
+    return {
+        "forecast_at": forecast.get("fetched_at") if rows else None,
+        "hours": [
+            {"valid_at": moment.isoformat(), "model_mean_c": fmean(values.values())}
+            for moment, values in rows
+        ],
+        "observations": [
+            {"observed_at": point["observed_at"], "temperature_c": point["temperature_c"]}
+            for point in observations
+        ],
+    }
 
 
 def scan_view(row, run_dir):
@@ -50,7 +80,9 @@ def scan_view(row, run_dir):
         "models": raw.get("forecast", {}).get("models_c", {}),
         "realtime": realtime_sources(raw) if raw.get("collected_at") else {},
         "correction": row.get("correction"),
+        "hourly": hourly_view(raw, row["target_date"]),
         "hourly_shadow": row.get("hourly_shadow"),
+        "market_source_failed": "event" in (raw.get("errors") or {}),
         "settlement": raw.get("settlement") or {"status": "not_collected", "observations": []},
         "quotes": quotes,
         "confirmation_count": row.get("confirmation_count", 0),
@@ -176,6 +208,7 @@ def handler_for(run_dir):
             files = {
                 "/": ("index.html", "text/html"),
                 "/app.js": ("app.js", "text/javascript"),
+                "/hourly.js": ("hourly.js", "text/javascript"),
                 "/settlement.js": ("settlement.js", "text/javascript"),
                 "/style.css": ("style.css", "text/css"),
             }

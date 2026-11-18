@@ -31,7 +31,7 @@ def _finite(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def _model_hourly_rows(raw: dict, target: date) -> list[tuple[datetime, dict[str, float]]]:
+def model_hourly_rows(raw: dict, target: date) -> list[tuple[datetime, dict[str, float]]]:
     """Require one complete four-model row for every local hour on the target day."""
     hourly = (raw.get("sources", {}).get("forecast", {}).get("data") or {}).get("hourly") or {}
     if not isinstance(hourly, dict):
@@ -95,7 +95,7 @@ def hourly_tmax_shadow(
     if not _finite(observed_high_c):
         report["status"] = "verified_station_high_missing"
         return report
-    hourly_rows = _model_hourly_rows(raw, today)
+    hourly_rows = model_hourly_rows(raw, today)
     if not hourly_rows:
         report["status"] = "target_day_hourly_path_incomplete"
         return report

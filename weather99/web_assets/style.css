@@ -1,4 +1,4 @@
-@layer base, layout, components, responsive;
+@layer base, layout, components, responsive, forecast;
 
 @layer base {
   :root { font-family:"Segoe UI","Microsoft YaHei",sans-serif; color:#253a39; background:#f6f7f4; font-synthesis:none; --ink:#213b37; --muted:#6b7b78; --line:#e3e8e2; --accent:#247a61; --surface:#fff; --amber:#916324; }
@@ -259,3 +259,212 @@
 .daily-panel tbody th{position:sticky;inset-inline-start:0;z-index:1;background:white}
 .daily-panel td{white-space:nowrap}
 @container (width < 600px){.daily-panel th,.daily-panel td{padding:.8rem}}
+
+@layer forecast {
+  :root {
+    --ink: #142c45;
+    --muted: #53677e;
+    --line: #dce6f0;
+    --accent: #235cb3;
+    --surface: #fff;
+    color: var(--ink);
+    background: #eff4fa;
+  }
+
+  body { grid-template-columns: 12.5rem minmax(0, 1fr); }
+  button:focus-visible, a:focus-visible, select:focus-visible,
+  summary:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+    outline: 3px solid #4989e7;
+    outline-offset: 3px;
+  }
+  .sidebar { background: #101f34; color: #b6c8e0; padding-block-start: 1.55rem; }
+  .brand { font-size: 1rem; letter-spacing: -.02em; gap: .65rem; color: #f4f8ff; }
+  .brand-mark { color: #112745; background: #b6d8ff; inline-size: 2.4rem; block-size: 2.4rem; }
+  .sidebar nav { margin-block-start: 2.2rem; }
+  .sidebar nav a { font-size: .8125rem; }
+  .sidebar nav a[aria-current], .sidebar nav a:hover {
+    color: #f6faff;
+    border-color: #3b5a81;
+    background: #203957;
+  }
+  .sidebar nav a[aria-current] { box-shadow: inset 3px 0 #78b3ff; }
+  .sidebar-bottom { border-block-start: 1px solid #2b405c; padding-block-start: 1.1rem; }
+  .station-label, .sidebar-bottom p { color: #b6c8e0; }
+  .sidebar-bottom p { margin-block: .25rem .4rem; }
+  .topbar { block-size: 4rem; background: #f8fbff; }
+  .topbar-location { display: flex; align-items: center; gap: .85rem; }
+  .topbar-location strong { font-size: .875rem; }
+  #clock { font-variant-numeric: tabular-nums; }
+  #refresh { border-color: var(--line); color: var(--ink); }
+  main { max-inline-size: 89rem; padding-block-start: 1.8rem; }
+  .page-heading { align-items: end; margin-block-end: 1.35rem; }
+  .station-kicker { color: #235cb3; font-weight: 700; font-size: .75rem; letter-spacing: .12em; }
+  .station-kicker span {
+    color: var(--muted);
+    font-weight: 500;
+    margin-inline-start: .45rem;
+    letter-spacing: .04em;
+  }
+  h1 { font-size: clamp(1.9rem, 3.3vw, 3.15rem); font-weight: 720; letter-spacing: -.045em; }
+  .page-heading .date-control { font-size: .75rem; font-weight: 600; }
+  .page-heading select { border-color: #cedbe9; min-inline-size: 9rem; color: var(--ink); }
+  .panel { border-radius: .85rem; background: var(--surface); }
+  .section-title h2 { font-size: 1.22rem; }
+
+  .hourly-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(15.5rem, 24%);
+    gap: 1rem;
+    align-items: stretch;
+  }
+  .hourly-panel { margin: 0; min-inline-size: 0; padding: clamp(.85rem, 2vw, 1.4rem); }
+  .hourly-header { display: flex; justify-content: space-between; gap: .6rem; flex-wrap: wrap; }
+  .hourly-header h2 { font-size: 1.16rem; line-height: 1.35; }
+  .hourly-header p, .hourly-zone { font-size: .75rem; color: var(--muted); }
+  .hourly-header p { margin-block-start: .22rem; }
+  .hourly-zone {
+    padding: .22rem .55rem;
+    border: 1px solid #dce7f4;
+    border-radius: .4rem;
+    background: #f3f7fc;
+    align-self: start;
+    white-space: nowrap;
+  }
+  .hourly-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1.1rem;
+    list-style: none;
+    padding: 0;
+    margin-block: 1.05rem .65rem;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+  .hourly-legend li { display: flex; gap: .43rem; align-items: center; }
+  .hourly-swatch { display: inline-block; inline-size: 1.1rem; border-block-start: 2px solid; }
+  .hourly-swatch.original { color: #3473d9; }
+  .hourly-swatch.adjusted { color: #00786a; border-block-start-style: dashed; }
+  .hourly-swatch.observation {
+    background: #b85d24;
+    inline-size: .46rem;
+    block-size: .46rem;
+    border: 0;
+    border-radius: 50%;
+  }
+  .hourly-plot {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(#f4f8fd, #fcfdff);
+    border: 1px solid #e0eaf4;
+    border-radius: .6rem;
+  }
+  #hourly-chart { display: block; inline-size: 100%; block-size: clamp(13rem, 24vw, 21.5rem); }
+  .hourly-empty {
+    position: absolute;
+    inset: 0 0 1.9rem;
+    display: grid;
+    align-content: center;
+    text-align: center;
+    justify-items: center;
+    pointer-events: none;
+    gap: .3rem;
+    padding: 1rem;
+    color: var(--muted);
+    background: #f5f9fddc;
+    font-size: .75rem;
+  }
+  .hourly-empty strong { color: var(--ink); font-size: .95rem; }
+  .hourly-shuttle {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) 3.15rem;
+    align-items: center;
+    gap: .7rem;
+    margin-block-start: .35rem;
+    font-size: .75rem;
+    color: var(--muted);
+  }
+  #hourly-hour { accent-color: #2867c3; inline-size: 100%; block-size: 2.75rem; margin: 0; }
+  #hourly-selected { text-align: end; color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 650; }
+  .hourly-inline-values { display: none; }
+  #hourly-caption { color: var(--muted); font-size: .75rem; margin-block-start: .3rem; }
+
+  .hourly-summary {
+    min-inline-size: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: clamp(1rem, 2.15vw, 1.4rem);
+    border-radius: .85rem;
+    color: #f4f8ff;
+    background: radial-gradient(ellipse at 100% 0%, #28517e 0%, #172e4b 58%, #12243b 100%);
+  }
+  .hourly-summary header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem .5rem; }
+  .hourly-summary header h2 { font-size: .95rem; }
+  .hourly-summary header span, .hourly-summary dt, .observed-peak p, .observed-peak small {
+    font-size: .75rem;
+    color: #b8cce5;
+  }
+  .observed-peak { margin-block-start: .6rem; }
+  .observed-peak strong {
+    display: block;
+    color: #ffdbb0;
+    font-size: clamp(2.35rem, 3.9vw, 3.45rem);
+    font-weight: 620;
+    letter-spacing: -.06em;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+  }
+  .hourly-metrics, .hourly-inspection dl { margin: 0; }
+  .hourly-metrics > div, .hourly-inspection dl > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: .4rem;
+    padding-block: .53rem;
+  }
+  .hourly-metrics > div { border-block-start: 1px solid #8dade638; }
+  .hourly-summary dd { color: #f6faff; font-size: .8125rem; font-weight: 650; }
+  .hourly-inspection {
+    margin-block-start: auto;
+    padding: .75rem .8rem .3rem;
+    border: 1px solid #8dade64a;
+    border-radius: .55rem;
+    background: #fafcff0a;
+  }
+  .hourly-inspection h3 { font-size: .8125rem; color: #dcebff; }
+  .hourly-status { margin-block: .65rem .8rem; font-size: .75rem; color: var(--muted); }
+  .hourly-details summary { padding: .75rem 1.1rem; min-block-size: 2.75rem; cursor: pointer; color: var(--ink); font-weight: 650; }
+  .hourly-details[open] summary { border-block-end: 1px solid var(--line); }
+  .hourly-details .table-wrap { max-block-size: 24rem; }
+  .decision-panel, .runtime-panel { margin-block-start: 1rem; }
+
+  @media (max-width: 950px) {
+    .sidebar { padding-block-start: .75rem; }
+    .sidebar nav { margin-block-start: .35rem; }
+    .sidebar nav a[aria-current] { box-shadow: inset 0 -2px #78b3ff; }
+  }
+  @media (max-width: 710px) {
+    .hourly-layout { grid-template-columns: minmax(0, 1fr); }
+    .hourly-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+    .hourly-metrics > div { align-items: start; flex-direction: column; }
+    .hourly-summary dd { text-align: start; }
+    .hourly-inspection { display: none; }
+    .hourly-inline-values {
+      display: block;
+      color: var(--ink);
+      font-size: .75rem;
+      font-weight: 650;
+    }
+  }
+  @media (max-width: 480px) {
+    .topbar { block-size: 3.55rem; }
+    #clock { display: none; }
+    .page-heading { align-items: start; flex-direction: column; gap: .75rem; }
+    .hourly-legend { gap: .28rem .7rem; font-size: .6875rem; }
+    .hourly-zone { font-size: .6875rem; }
+  }
+  @media (forced-colors: active) {
+    .hourly-swatch.observation { border: 2px solid currentColor; }
+    .hourly-summary { border: 1px solid currentColor; }
+  }
+}
