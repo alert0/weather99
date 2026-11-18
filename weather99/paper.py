@@ -16,6 +16,7 @@ from .domain import SHANGHAI, ForecastEstimate, digest, finite, model_vector, ti
 from .forecasting import ModelArtifact
 from .ingest import collect
 from .nowcast import correct_forecast
+from .hourly_nowcast import hourly_tmax_shadow
 from .paper_ledger import PaperLedger
 from .qweather import QWeatherConfig, collect_airport_qweather
 from .service import analyze
@@ -171,7 +172,9 @@ def process_capture(raw, capture_path, settings, strategy, strategy_raw, ledger,
             with AuditStore(audit_path) as store:
                 store.register(model.version, "paper_baseline", model.definition)
         snapshot = live_snapshot(raw, model, layer)
-        _, correction = correct_forecast(raw, model.predict(raw["forecast"]["models_c"]), snapshot.observed_max_c)
+        baseline_forecast = model.predict(raw["forecast"]["models_c"])
+        _, correction = correct_forecast(raw, baseline_forecast, snapshot.observed_max_c)
+        hourly_shadow = hourly_tmax_shadow(raw, baseline_forecast, snapshot.observed_max_c)
         if correction["status"] == "applied":
             with AuditStore(audit_path) as store:
                 store.register(snapshot.forecast.model_version, "intraday_correction", {
@@ -203,6 +206,7 @@ def process_capture(raw, capture_path, settings, strategy, strategy_raw, ledger,
                 "method": snapshot.forecast.method,
             },
             "correction": correction,
+            "hourly_shadow": hourly_shadow,
             "selected": signal["selected"],
             "best_candidate": signal["candidates"][0] if signal["candidates"] else None,
         }

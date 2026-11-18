@@ -141,6 +141,14 @@ function renderRealtime(scan) {
     : correction?.status === 'not_target_day' ? '该市场不是今天：当前观测仅供参考，不校正其他日期。'
     : correction ? '未校正：缺少新鲜且与四模型小时预报对齐的观测。'
     : '该轮没有校正记录；显示原始观测供核对，等待新一轮采集评估。';
+  const shadow = scan?.hourly_shadow;
+  $('hourly-shadow-summary').textContent = shadow?.status === 'shadow_ready'
+    ? `ZSPD 已观测最高 ${number(shadow.observed_high_c, 1)} ℃ · 四模型修正后剩余峰值 ${number(shadow.predicted_remaining_peak_c, 2)} ℃ · 最终最高温参考预测 ${number(shadow.predicted_final_high_c, 2)} ℃。和风网格${shadow.qweather_used ? '已辅助' : '未参与'}；该结果不参与 Paper 下单。`
+    : shadow ? `Shadow 暂不计算：${shadow.status}。缺少必要的新鲜机场观测或完整小时曲线，不进行插值补造。`
+    : '本轮暂无逐小时 Shadow 计算记录。';
+  $('hourly-shadow-rows').innerHTML = shadow?.status === 'shadow_ready' && shadow.hours?.length
+    ? shadow.hours.map(hour => `<tr><td>${esc(time(hour.valid_at))}</td><td>${number(hour.model_mean_c, 2)} ℃</td><td>${number(hour.corrected_mean_c, 2)} ℃</td><td>${number(hour.shift_c, 2)} ℃</td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty">暂无可用的当日未来小时预报</td></tr>';
 }
 
 function renderWeather(weather) {
