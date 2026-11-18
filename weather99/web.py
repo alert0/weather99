@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from .paper import DEFAULT_RUN_DIR, status
 from .paper_report import evaluation_context, evaluation_lines, explain
+from .nowcast import realtime_sources
 
 ASSETS = Path(__file__).with_name("web_assets")
 
@@ -47,6 +48,8 @@ def scan_view(row, run_dir):
         "forecast": row.get("forecast"),
         "collected_at": raw.get("collected_at"),
         "models": raw.get("forecast", {}).get("models_c", {}),
+        "realtime": realtime_sources(raw) if raw.get("collected_at") else {},
+        "correction": row.get("correction"),
         "settlement": raw.get("settlement") or {"status": "not_collected", "observations": []},
         "quotes": quotes,
         "confirmation_count": row.get("confirmation_count", 0),
@@ -120,7 +123,7 @@ def dashboard(run_dir=DEFAULT_RUN_DIR):
     weather = read_json(weather_meta.get("snapshot"))
     points = []
     for p in weather.get("points", []):
-        current, forecast = p.get("current") or {}, p.get("forecast") or {}
+        current = p.get("current") or {}
         location = p.get("location") or {}
         points.append(
             {
@@ -132,8 +135,6 @@ def dashboard(run_dir=DEFAULT_RUN_DIR):
                 "temperature": current.get("temperature_c"),
                 "observed_at": current.get("observed_at"),
                 "condition": (current.get("condition") or {}).get("text"),
-                "high": forecast.get("temperature_max_c"),
-                "low": forecast.get("temperature_min_c"),
             }
         )
     return {
@@ -151,6 +152,9 @@ def dashboard(run_dir=DEFAULT_RUN_DIR):
             "complete": weather_meta.get("complete"),
             "collected_at": weather_meta.get("collected_at"),
             "points": points,
+            "daily_forecast": {key: value for key, value in weather.get("daily_forecast", {}).items()
+                               if key != "sources"},
+            "attributions": weather.get("attributions", []),
         },
         "scans": [scan_view(row, run_dir) for row in state.get("last_cycle") or []],
         **ledger_view(run_dir),

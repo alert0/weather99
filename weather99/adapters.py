@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from .domain import SHANGHAI, Bucket, ForecastEstimate, MarketSnapshot, digest, finite, timestamp
 from .forecasting import ModelArtifact
+from .nowcast import correct_forecast
 from .probability import parse_bounds
 
 
@@ -89,6 +90,7 @@ def live_snapshot(raw: dict, model: ModelArtifact, layer: str) -> MarketSnapshot
             if not latest or not 0 <= (timestamp(as_of) - timestamp(latest)).total_seconds() <= 3600:
                 raise ValueError("settlement_observation_stale")
             observed_max = evidence["observed_max_c"]
+    forecast, _ = correct_forecast(raw, model.predict(raw["forecast"]["models_c"]), observed_max)
     return MarketSnapshot(
         digest(raw),
         target,
@@ -96,7 +98,7 @@ def live_snapshot(raw: dict, model: ModelArtifact, layer: str) -> MarketSnapshot
         as_of,
         event["endDate"],
         tuple(buckets),
-        model.predict(raw["forecast"]["models_c"]),
+        forecast,
         observed_max_c=observed_max,
     )
 

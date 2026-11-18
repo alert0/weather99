@@ -76,7 +76,7 @@ def build_parser():
         action="store_true",
         help="require QWeather credentials and add auxiliary weather",
     )
-    qweather = commands.add_parser("qweather", help="fetch QWeather daily and current grid weather")
+    qweather = commands.add_parser("qweather", help="fetch QWeather current grid temperature")
     qweather.add_argument(
         "--date", type=date.fromisoformat, default=datetime.now(timezone(timedelta(hours=8))).date()
     )

@@ -145,7 +145,6 @@
   .point-temp { font-size:2rem; font-weight:400; margin-block:.8rem .15rem; letter-spacing:-1px; }
   .point-temp small { font-size:.8125rem; color:var(--muted); }
   .point-condition { color:var(--muted); font-size:.625rem; }
-  .point-range { display:flex; justify-content:space-between; flex-wrap:wrap; gap:.3rem; padding-block:.7rem; margin-block-start:.4rem; border-block-end:1px solid var(--line); font-size:.625rem; color:#5b715f; }
   .point-time { font-size:.5625rem; line-height:1.8; color:var(--muted); padding-block-start:.6rem; font-variant-numeric:tabular-nums; }
   .account-label { padding:.25rem .7rem; border:1px solid #d3dfcc; background:#edf3e7; font-size:.625rem; color:#5b7553; border-radius:2rem; }
   .metrics article { background:white; border:1px solid var(--line); border-radius:.5rem; padding:1.2rem 1.3rem; min-inline-size:0; }
@@ -235,8 +234,7 @@
     .weather-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .weather-point:first-child { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:0 1rem; }
     .weather-point:first-child .point-head { grid-column:1/-1; }
-    .weather-point:first-child .point-temp { grid-row:2/4; }
-    .weather-point:first-child .point-range { border:0; padding:0; }
+    .weather-point:first-child .point-temp { grid-row:2; }
     .weather-point:first-child .point-time { grid-column:1/-1; border-block-start:1px solid var(--line); margin-block-start:.5rem; }
     .panel-footnote { padding:.8rem 1rem; }
     th,td { padding:.8rem 1rem; }
@@ -253,3 +251,11 @@
 }
 
 .settlement-panel .table-wrap{max-block-size:360px;overflow:auto}.settlement-panel table{border-collapse:separate;border-spacing:0}.settlement-panel thead{position:sticky;inset-block-start:0;z-index:2;background:#f8faf7}.settlement-panel tbody th{position:sticky;inset-inline-start:0;background:#fff;z-index:1}.settlement-panel td:last-child{font-family:Consolas,monospace;white-space:nowrap}.settlement-panel details p{white-space:pre-wrap;overflow-wrap:anywhere}.settlement-panel summary{cursor:pointer}
+.realtime-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.realtime-grid p{font-size:.75rem;line-height:1.8;overflow-wrap:anywhere}
+.daily-panel .table-wrap{overflow:auto;max-block-size:360px;container-type:inline-size}
+.daily-panel table{border-collapse:separate;border-spacing:0}
+.daily-panel thead{position:sticky;inset-block-start:0;z-index:2;background:#f8faf7}
+.daily-panel tbody th{position:sticky;inset-inline-start:0;z-index:1;background:white}
+.daily-panel td{white-space:nowrap}
+@container (width < 600px){.daily-panel th,.daily-panel td{padding:.8rem}}

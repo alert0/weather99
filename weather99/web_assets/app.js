@@ -78,6 +78,7 @@ function probabilityCell(value, market, name) {
 function renderMarket() {
   const scan = selectedScan();
   renderDecision(scan);
+  renderRealtime(scan);
   if (!scan) {
     $('model-values').innerHTML = '';
     $('quote-rows').innerHTML = '<tr><td colspan="6" class="empty">暂无盘口记录</td></tr>';
@@ -125,15 +126,39 @@ function drawChart(history) {
     <text text-anchor="end" x="${width - right}" y="${height - 3}">${esc(time(points.at(-1).time))}</text></svg>`;
 }
 
+function renderRealtime(scan) {
+  const statusText = {fresh: '有效', stale: '已过期', future: '时间超前', missing: '暂无数据', incomplete: '五点缺失或时间不一致', source_error: '采集失败', invalid_time: '时间无效'};
+  $('realtime-sources').innerHTML = ['metar', 'qweather'].map(key => {
+    const row = scan?.realtime?.[key] || {};
+    return `<div class="model-tile"><span>${key === 'metar' ? 'METAR · ZSPD 实测' : '和风 · 五点当前均温'}</span><strong>${number(row.temperature_c, 1)} ℃</strong>
+      <p>${esc(statusText[row.status] || '暂无数据')} · 有效时间 ${esc(time(row.observed_at))}</p>
+      <p>同刻模型 ${number(row.model_current_c, 1)} ℃ · 偏差 ${number(row.residual_c, 2)} ℃</p>
+      ${key === 'metar' ? `<p>当日已观测最高 ${number(row.observed_max_c, 1)} ℃</p>` : ''}</div>`;
+  }).join('');
+  const correction = scan?.correction;
+  $('correction-summary').textContent = correction?.status === 'applied'
+    ? `当日校正已参与概率计算：${number(correction.before_c, 2)} → ${number(correction.after_c, 2)} ℃（调整 ${number(correction.adjustment_c, 2)} ℃）。偏差权重 METAR 75% / 和风 25%，增益 50%，偏差调整限幅 ±2 ℃，预测中心不低于当日已观测最高；误差尺度保持原值。`
+    : correction?.status === 'not_target_day' ? '该市场不是今天：当前观测仅供参考，不校正其他日期。'
+    : correction ? '未校正：缺少新鲜且与四模型小时预报对齐的观测。'
+    : '该轮没有校正记录；显示原始观测供核对，等待新一轮采集评估。';
+}
+
 function renderWeather(weather) {
+  const daily = weather.daily_forecast || {};
+  $('daily-time').textContent = `预报采集 ${time(daily.collected_at)}${daily.complete === false ? ' · 预报不可用' : ''}`;
+  $('daily-rows').innerHTML = daily.days?.length ? daily.days.map(day => `<tr>
+    <th scope="row">${esc(day.date)}</th><td>${number(day.max_c, 1)} / ${number(day.min_c, 1)} ℃</td>
+    <td>${esc(day.day_condition || '—')} / ${esc(day.night_condition || '—')}</td>
+    <td>${esc(time(day.start_at))} — ${esc(time(day.end_at))}</td></tr>`).join('')
+    : '<tr><td colspan="4" class="empty">尚无和风单点预报，等待采集；请求失败时保留缺失状态。</td></tr>';
+  $('weather-attributions').textContent = `数据来源：和风天气 QWeather。${(weather.attributions || []).join(' · ')}`;
   const names = {center: '中心参考点', north: '北侧采样点', south: '南侧采样点', east: '东侧采样点', west: '西侧采样点'};
   const directions = {center: 'C', north: 'N', south: 'S', east: 'E', west: 'W'};
   $('weather-time').textContent = `最近采集 ${time(weather.collected_at)}`;
   $('weather-points').innerHTML = weather.points.length ? weather.points.map(point => `
     <article class="panel weather-point"><div class="point-head"><h3>${esc(names[point.id] || point.name)}</h3><span class="point-id">${esc(directions[point.id] || '')}</span></div>
       <div class="point-temp">${number(point.temperature, 1)} <small>℃</small></div>
-      <p class="point-condition">${esc(point.condition)} · ${point.complete ? '数据完整' : '数据不完整'}</p>
-      <div class="point-range"><span>预报高 ${number(point.high, 1)}°</span><span>预报低 ${number(point.low, 1)}°</span></div>
+      <p class="point-condition">${point.complete ? '温度已采集' : '温度暂不可用'}</p>
       <p class="point-time">有效时间 ${esc(time(point.observed_at))}<br>${number(point.latitude, 4)} N · ${number(point.longitude, 4)} E</p>
     </article>`).join('') : '<div class="panel empty">尚无和风天气采集记录</div>';
 }

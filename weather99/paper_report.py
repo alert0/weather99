@@ -204,10 +204,9 @@ def render_status(state, run_dir=None):
         )
         times = "、".join(local_time(t) for t in weather.get("valid_times", [])) or "暂无"
         lines.append(f"天气数据有效时间：{times}")
-        for key, label in [("current_c", "五点当前温度"), ("forecast_max_c", "五点今日最高温预报")]:
-            values = summary.get(key) or {}
-            if values.get("min") is not None and values.get("max") is not None:
-                lines.append(f"{label}：{values['min']:.1f}～{values['max']:.1f} ℃")
+        values = summary.get("current_c") or {}
+        if values.get("min") is not None and values.get("max") is not None:
+            lines.append(f"五点当前温度：{values['min']:.1f}～{values['max']:.1f} ℃")
         if weather.get("errors"):
             lines.append("天气采集有错误，详细记录见 runtime/paper/weather/。")
     else:

@@ -24,14 +24,14 @@ python -m unittest discover -s tests -v
 
 ## 和风天气
 
-已接入和风天气的[坐标每日预报](https://dev.qweather.com/en/docs/api/weather/weather-daily-forecast/)和[当前天气](https://dev.qweather.com/en/docs/api/weather/weather-current/)，使用专属 API Host 与请求头认证。环境变量模板见 `.env.example`；程序读取启动进程的环境变量，不自动加载 `.env` 文件。
+已接入和风天气的[当前天气](https://dev.qweather.com/en/docs/api/weather/weather-current/)，使用专属 API Host 与请求头认证。环境变量模板见 `.env.example`；程序读取启动进程的环境变量，不自动加载 `.env` 文件。
 
 在同一个 PowerShell 窗口中配置后运行（以下内容是占位符）：
 
 ```powershell
 $env:QWEATHER_API_HOST = "你的专属域名.qweatherapi.com"
 $env:QWEATHER_API_KEY = "你的APIKey"
-python -m weather99 qweather --date 2026-11-18
+python -m weather99 qweather
 python -m weather99 collect --date 2026-11-18 --with-qweather
 ```
 
@@ -39,7 +39,7 @@ python -m weather99 collect --date 2026-11-18 --with-qweather
 
 默认位置固定为**上海浦东国际机场 ZSPD**，坐标为纬度 **31.1443**、经度 **121.8083**（沿用项目策略规格）。位置统一定义在 `weather99/locations.py`，主采集与和风查询共同使用。快照中的 `location` 记录机场身份；和风输出用 `reference_station=ZSPD` 表示查询坐标所属机场，`data_type=coordinate_grid_weather` 表示该数据仍为网格天气。
 
-`qweather` 命令默认查询机场区域 **5 个采样点**的 7 天预报与当前天气，点位定义在 `weather99/locations.py`。这是一组围绕机场参考坐标的固定采样点，不是 5 个官方观测站：
+`qweather` 命令默认查询机场区域 **5 个采样点**的当前温度，点位定义在 `weather99/locations.py`。这是一组围绕机场参考坐标的固定采样点，不是 5 个官方观测站：
 
 | 点位 | 纬度 | 经度 |
 |---|---|---|
@@ -49,13 +49,15 @@ python -m weather99 collect --date 2026-11-18 --with-qweather
 | 东侧 | 31.1443 | 121.8183 |
 | 西侧 | 31.1443 | 121.7983 |
 
-每次多点采集共请求 10 次接口，和风请求最多并发 4 个。`points` 保留各点的独立结果和原始响应，`summary` 给出每日最高温预报、最低温预报和当前温度的空间范围、均值及温差。只有预报起止时段一致或当前天气有效时间一致，才计算对应温差；时间不同则汇总值为 null。点位缺失时保留其他点的数据，明确显示有效点数及错误，整体 `complete=false`。相邻网格数据属于同一提供方，不作为 5 个独立模型参与融合，也不替代 ZSPD METAR。
+每次多点采集共请求 5 次当前天气接口，最多并发 2 个。`points` 保留各点的独立结果和原始响应，`summary` 给出当前温度的空间范围、均值及温差。只有当前天气有效时间一致，才计算这些汇总值；时间不同则汇总值为 null。点位缺失时保留其他点的数据，明确显示有效点数及错误，整体 `complete=false`。相邻网格数据属于同一提供方，不作为 5 个独立模型参与融合，也不替代 ZSPD METAR。
 
-加 `--single-point` 可只查中心点；同时指定 `--latitude`、`--longitude` 可查询一个自定义坐标。自定义坐标不匹配机场中心时不会挂浦东机场标识；时区与日期筛选仍按上海处理。所有采样点的两类数据均有效时退出 0，否则退出 2。未配置凭据时不会发起请求。
+加 `--single-point` 可只查中心点；同时指定 `--latitude`、`--longitude` 可查询一个自定义坐标。自定义坐标不匹配机场中心时不会挂浦东机场标识；数据时间使用接口返回的有效时间。所有采样点的当前温度均有效时退出 0，否则退出 2。未配置凭据时不会发起请求。
 
-配置完整后，主 `collect` 命令自动附带和风天气的这 5 个点，结果和原始响应保存在 `auxiliary_weather.qweather`，多点格式标记为 `weather99.qweather.airport.v1`；未配置时维持原有采集。显式 `--with-qweather` 会要求配置存在，并在和风数据不完整时返回退出码 2。辅助源错误保存在其自身 `errors` 字段，原有 `data_ready` 只描述四模型/机场实测/盘口主链路。控制台省略各点的原始响应，主采集快照完整保留。
+配置完整后，主 `collect` 命令自动附带和风天气的这 5 个点，结果和原始响应保存在 `auxiliary_weather.qweather`，多点格式标记为 `weather99.qweather.airport.v2`；未配置时维持原有采集。显式 `--with-qweather` 会要求配置存在，并在和风数据不完整时返回退出码 2。辅助源错误保存在其自身 `errors` 字段，原有 `data_ready` 只描述四模型/机场实测/盘口主链路。控制台省略各点的原始响应，主采集快照完整保留。
 
-和风数据作为独立网格天气参考，不填充四模型向量，不冒充机场 METAR 或最终结算值，暂不改变岭回归特征。每日预报保留原始起止时刻，并用 `calendar_day_aligned` 标记是否恰好覆盖上海当地自然日；时间范围不一致时不能直接当作市场结算日最高温。来源署名保存在 `attributions`，展示数据时应同时展示这些来源。当前天气始终标记 `station_verified=false`。
+和风数据不填充四模型向量，不冒充机场 METAR 或最终结算值，不改变岭回归特征。主采集和模拟盘另查询机场**中心一个点**的三天逐日预报（每轮额外 1 次请求），保留最高/最低温、昼夜天气、提供方有效区间和采集时间；不把采集时间冒充预报发布时间。预报失败独立标记，不影响已成功的当前天气。来源署名保存在 `attributions`，展示数据时同时展示。当前天气始终标记 `station_verified=false`。
+
+当日评估增加 `intraday_residual_v1` 研究校正：用 ZSPD 常规 METAR（优先 T 段）和完整、同有效时间的和风五点均温，分别减去同一时刻四模型小时温度的等权均值（整点间线性插值）。仅使用本日、不晚于快照且不超过 60 分钟的观测；缺少任一小时模型则该源不参与。中心调整为 `clip(0.5 × (0.75 × METAR偏差 + 0.25 × 和风偏差), -2, 2)`，缺失源贡献为零，之后预测中心不低于当日已观测最高温。误差尺度保持原值。这些权重、增益和限幅是**未经回测的研究假设**，并非已验证的精度提升；不把当天偏差带到明天。原始中心、每源时间与偏差、校正后中心及参数写入评估记录，校正版本参与连续确认；旧记录不会追溯改写。和风逐日预报单独展示，不自动加入该残差校正。
 
 ## 市场结算依据
 
@@ -104,7 +106,7 @@ python -m weather99 paper stop
 
 `paper run` 是持续前台进程，也可由后台进程启动。它使用程序专用代理 `runtime/network.json`（本机已配置 `http://127.0.0.1:20808`），不修改系统代理；设置 `WEATHER99_PROXY_URL` 可覆盖这个地址。代理请求失败时记录阻塞，禁止以直连或虚构盘口替代。
 
-默认参数在 `config/paper.json`：初始模拟现金 50 USD，每个温度桶 5 份、每组投入含预留最多 5 USD、最多 2 个未结算市场、每 180 秒（3 分钟）扫描今天和明天。持仓未结算时持续跟踪对应旧日期。每轮和风只采集机场 5 点一次，共 10 次请求；今天和明天从同一份 7 天原始响应中分别选择目标日，不重复查询。原始五点采样另存 `runtime/paper/weather/`。
+默认参数在 `config/paper.json`：初始模拟现金 50 USD，每个温度桶 5 份、每组投入含预留最多 5 USD、最多 2 个未结算市场、每 180 秒（3 分钟）扫描今天和明天。持仓未结算时持续跟踪对应旧日期。每轮和风只采集机场 5 点一次，共 5 次当前天气请求。今天和明天的市场快照共享同轮采样。原始五点采样另存 `runtime/paper/weather/`。
 
 状态中的 `latest_weather.valid_times` 保留接口实际有效时间，`observation_time_changed` 只在这些时间发生变化时为 true；轮询成功不表示提供方发布了新观测。每轮仍保存快照，便于检查网络和数据更新时间。
 

@@ -12,29 +12,17 @@ from urllib.error import HTTPError
 from weather99.cli import main
 from weather99.http import NoCredentialRedirect, fetch
 from weather99.ingest import collect
-from weather99.qweather import QWeatherConfig, collect_qweather, normalize_daily
-
-
-def daily_payload():
-    return {
-        "metadata": {"attributions": ["https://developer.qweather.com/attribution.html"]},
-        "days": [
-            {
-                "forecastStartTime": "2026-11-17T00:00+08:00",
-                "forecastEndTime": "2026-11-18T00:00+08:00",
-                "temperatureMax": {"value": 20.5, "unit": "°C"},
-                "temperatureMin": {"value": 14, "unit": "°C"},
-            }
-        ],
-    }
+from weather99.qweather import QWeatherConfig, collect_qweather
 
 
 def provider_response(url, params=None, *, headers=None):
-    payload = (
-        daily_payload()
-        if "/daily/" in url
-        else {"validTime": "2026-11-17T12:00+08:00", "temperature": {"value": 19, "unit": "°C"}}
-    )
+    if "/current/" not in url:
+        raise AssertionError(f"unexpected QWeather endpoint: {url}")
+    payload = {
+        "validTime": "2026-11-17T12:00+08:00",
+        "temperature": {"value": 19, "unit": "°C"},
+        "metadata": {"attributions": ["https://developer.qweather.com/attribution.html"]},
+    }
     return {"url": url, "status": 200, "data": payload, "raw": json.dumps(payload)}
 
 
@@ -72,7 +60,8 @@ class QWeatherTests(unittest.TestCase):
         for call in transport.call_args_list:
             self.assertEqual(call.kwargs["headers"], {"X-QW-Api-Key": "secret-key"})
             self.assertIn("/31.1443/121.8083", call.args[0])
-        self.assertEqual(result["forecast"]["temperature_max_c"], 20.5)
+        self.assertEqual(result["current"]["temperature_c"], 19)
+        transport.assert_called_once()
         self.assertFalse(result["current"]["station_verified"])
         self.assertEqual(len(result["attributions"]), 1)
         self.assertEqual(
@@ -80,30 +69,28 @@ class QWeatherTests(unittest.TestCase):
             {"Authorization": "Bearer jwt-token"},
         )
 
-    def test_business_errors_and_missing_date_are_not_successful_weather(self):
+    def test_business_errors_are_not_successful_weather(self):
         with patch("weather99.qweather.fetch", return_value={"data": {"code": "401"}}):
             result = collect_qweather(
                 QWeatherConfig("test.qweatherapi.com", "key"), "2026-11-17", 31, 121
             )
         self.assertFalse(result["complete"])
         self.assertIsNone(result["location"]["reference_station"])
-        self.assertIsNone(result["forecast"])
-        self.assertEqual(set(result["errors"]), {"daily", "current"})
-        with self.assertRaisesRegex(ValueError, "missing or duplicated"):
-            normalize_daily(daily_payload(), "2026-11-18")
+        self.assertIsNone(result["current"])
+        self.assertEqual(set(result["errors"]), {"current"})
 
-    def test_day_period_and_units_are_preserved_and_checked(self):
-        payload = daily_payload()
-        self.assertTrue(normalize_daily(payload, "2026-11-17")["calendar_day_aligned"])
-        payload["days"][0]["forecastStartTime"] = "2026-11-17T07:00+08:00"
-        self.assertFalse(normalize_daily(payload, "2026-11-17")["calendar_day_aligned"])
-        payload["days"][0]["temperatureMax"]["unit"] = "°F"
-        with self.assertRaisesRegex(ValueError, "Celsius"):
-            normalize_daily(payload, "2026-11-17")
+    def test_current_temperature_requires_celsius(self):
+        response = provider_response("https://test.qweatherapi.com/current/31/121")
+        response["data"]["temperature"]["unit"] = "°F"
+        with patch("weather99.qweather.fetch", return_value=response):
+            result = collect_qweather(QWeatherConfig("test.qweatherapi.com", "key"), "2026-11-17")
+        self.assertIsNone(result["current"])
+        self.assertFalse(result["complete"])
+        self.assertIn("current", result["errors"])
 
     def test_provider_failure_is_local_and_does_not_masquerade_as_model_or_metar(self):
         config = QWeatherConfig("test.qweatherapi.com", "key")
-        auxiliary = {"complete": False, "errors": {"daily": "HTTP 401"}}
+        auxiliary = {"complete": False, "errors": {"current": "HTTP 401"}}
         with (
             TemporaryDirectory() as directory,
             patch("weather99.ingest.fetch", return_value={"data": {}}),

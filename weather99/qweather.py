@@ -5,7 +5,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 from statistics import fmean
 
@@ -76,38 +76,6 @@ def temperature_c(value):
     return value["value"]
 
 
-def normalize_daily(payload, target_date):
-    day = date.fromisoformat(target_date)
-    rows = payload.get("days")
-    if not isinstance(rows, list):
-        raise TypeError("QWeather daily response days must be an array")
-    matches = []
-    for row in rows:
-        start, end = timestamp(row["forecastStartTime"]), timestamp(row["forecastEndTime"])
-        if end <= start:
-            raise ValueError("QWeather forecast period is reversed")
-        local_start, local_end = start.astimezone(SHANGHAI), end.astimezone(SHANGHAI)
-        if local_start.date() != day:
-            continue
-        matches.append(
-            {
-                "date": target_date,
-                "temperature_max_c": temperature_c(row["temperatureMax"]),
-                "temperature_min_c": temperature_c(row["temperatureMin"]),
-                "period_start": start.isoformat(),
-                "period_end": end.isoformat(),
-                "calendar_day_aligned": local_start.time().isoformat() == "00:00:00"
-                and local_end.time().isoformat() == "00:00:00"
-                and local_end.date() == day + timedelta(days=1),
-            }
-        )
-    if len(matches) != 1:
-        raise ValueError("QWeather target date is missing or duplicated in daily forecast")
-    if matches[0]["temperature_min_c"] > matches[0]["temperature_max_c"]:
-        raise ValueError("QWeather minimum temperature exceeds maximum")
-    return matches[0]
-
-
 def normalize_current(payload):
     valid_time = timestamp(payload["validTime"])
     return {
@@ -124,7 +92,7 @@ def collect_qweather(
     latitude: float = PUDONG.latitude,
     longitude: float = PUDONG.longitude,
 ):
-    """Two bounded read requests. Return errors as provider-local diagnostics."""
+    """Fetch current grid weather at one coordinate."""
     date.fromisoformat(target_date)
     for value, name, limit in ((latitude, "latitude", 90), (longitude, "longitude", 180)):
         finite(value, name)
@@ -132,40 +100,31 @@ def collect_qweather(
             raise ValueError(f"invalid {name}")
     base = f"https://{config.host}/weather/v1"
     coordinates = f"{latitude}/{longitude}"
-    jobs = {
-        "daily": (f"{base}/daily/{coordinates}", {"days": 7, "localTime": "true", "lang": "zh"}),
-        "current": (f"{base}/current/{coordinates}", {"localTime": "true", "lang": "zh"}),
-    }
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = {
-            name: pool.submit(fetch, url, params, headers=config.auth_headers())
-            for name, (url, params) in jobs.items()
-        }
-        sources = {name: future.result() for name, future in futures.items()}
-    normalized, errors, attributions = {}, {}, set()
-    for name, source in sources.items():
-        if source.get("error"):
-            errors[name] = source["error"]
-            continue
-        payload = source.get("data")
+    source = fetch(
+        f"{base}/current/{coordinates}",
+        {"localTime": "true", "lang": "zh"},
+        headers=config.auth_headers(),
+    )
+    current, errors, attributions = None, {}, []
+    if source.get("error"):
+        errors["current"] = source["error"]
+    else:
         try:
+            payload = source.get("data")
             if not isinstance(payload, dict):
                 raise TypeError("QWeather response must be an object")
-            # v1 normally uses HTTP status; reject legacy/business error envelopes as well.
             if "code" in payload and str(payload["code"]) != "200":
                 raise ValueError("QWeather API returned a non-success business code")
-            normalized[name] = (
-                normalize_daily(payload, target_date)
-                if name == "daily"
-                else normalize_current(payload)
+            attributions = sorted(
+                {
+                    value
+                    for value in payload.get("metadata", {}).get("attributions", [])
+                    if isinstance(value, str)
+                }
             )
-            attributions.update(
-                value
-                for value in payload.get("metadata", {}).get("attributions", [])
-                if isinstance(value, str)
-            )
+            current = normalize_current(payload)
         except (ValueError, KeyError, TypeError, AttributeError) as exc:
-            errors[name] = f"invalid_response:{type(exc).__name__}"
+            errors["current"] = f"invalid_response:{type(exc).__name__}"
     is_pudong = latitude == PUDONG.latitude and longitude == PUDONG.longitude
     return {
         "provider": "QWeather",
@@ -179,12 +138,11 @@ def collect_qweather(
             "data_type": "coordinate_grid_weather",
         },
         "target_date": target_date,
-        "complete": not errors and len(normalized) == 2,
-        "forecast": normalized.get("daily"),
-        "current": normalized.get("current"),
-        "attributions": sorted(attributions),
+        "complete": current is not None,
+        "current": current,
+        "attributions": attributions,
         "errors": errors,
-        "sources": sources,
+        "sources": {"current": source},
     }
 
 
@@ -201,30 +159,14 @@ def temperature_range(values):
 
 
 def summarize_points(points):
-    """Compare matching periods/times only; partial coverage is always explicit."""
-    forecasts = [point["forecast"] for point in points if point.get("forecast")]
+    """Compare values only when their provider timestamps match."""
     currents = [point["current"] for point in points if point.get("current")]
-    periods = sorted(
-        {(timestamp(row["period_start"]), timestamp(row["period_end"])) for row in forecasts}
-    )
     times = sorted({timestamp(row["observed_at"]) for row in currents})
-    forecasts_comparable = len(periods) == 1
     currents_comparable = len(times) == 1
     return {
         "expected_points": len(points),
         "complete_points": sum(point["complete"] for point in points),
-        "forecast_points": len(forecasts),
         "current_points": len(currents),
-        "forecast_periods_match": forecasts_comparable,
-        "forecast_periods": [[start.isoformat(), end.isoformat()] for start, end in periods],
-        "forecast_calendar_day_aligned": bool(forecasts)
-        and all(row["calendar_day_aligned"] for row in forecasts),
-        "forecast_max_c": temperature_range([row["temperature_max_c"] for row in forecasts])
-        if forecasts_comparable
-        else None,
-        "forecast_min_c": temperature_range([row["temperature_min_c"] for row in forecasts])
-        if forecasts_comparable
-        else None,
         "current_times_match": currents_comparable,
         "current_valid_times": [value.isoformat() for value in times],
         "current_c": temperature_range([row["temperature_c"] for row in currents])
@@ -234,8 +176,42 @@ def summarize_points(points):
     }
 
 
-def collect_airport_qweather(config: QWeatherConfig, target_date: str):
-    """Five airport-area samples, ten HTTP calls, at most four in flight at a time."""
+def collect_daily_forecast(config: QWeatherConfig):
+    """One airport-center request; retain provider intervals rather than invent a daily cutoff."""
+    source = fetch(
+        f"https://{config.host}/weather/v1/daily/{PUDONG.latitude}/{PUDONG.longitude}",
+        {"days": 3, "localTime": "true", "lang": "zh"}, headers=config.auth_headers(),
+    )
+    days, errors, attributions = [], {}, []
+    if source.get("error"):
+        errors["daily"] = source["error"]
+    else:
+        try:
+            payload = source["data"]
+            attributions = [v for v in payload.get("metadata", {}).get("attributions", [])
+                            if isinstance(v, str)]
+            for row in payload["days"]:
+                start, end = timestamp(row["forecastStartTime"]), timestamp(row["forecastEndTime"])
+                high, low = temperature_c(row["temperatureMax"]), temperature_c(row["temperatureMin"])
+                if end <= start or high < low:
+                    raise ValueError("invalid forecast interval or temperature range")
+                days.append({"date": start.astimezone(SHANGHAI).date().isoformat(),
+                             "start_at": start.isoformat(), "end_at": end.isoformat(),
+                             "max_c": high, "min_c": low,
+                             "day_condition": (row.get("daytime", {}).get("condition") or {}).get("text"),
+                             "night_condition": (row.get("nighttime", {}).get("condition") or {}).get("text")})
+            if not days:
+                raise ValueError("empty forecast")
+        except (KeyError, ValueError, TypeError, AttributeError):
+            days = []
+            errors["daily"] = "invalid_response"
+    return {"complete": bool(days) and not errors, "location": PUDONG.metadata(),
+            "collected_at": source.get("fetched_at"), "days": days, "errors": errors,
+            "attributions": attributions, "sources": {"daily": source}}
+
+
+def collect_airport_qweather(config: QWeatherConfig, target_date: str, *, include_forecast=False):
+    """Five current-weather requests, one per airport-area sample."""
     points = []
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [
@@ -249,8 +225,8 @@ def collect_airport_qweather(config: QWeatherConfig, target_date: str):
             payload = future.result()
             payload["location"].update(name=point.name, reference_station=PUDONG.icao)
             points.append({"point_id": point.id, **payload})
-    return {
-        "schema": "weather99.qweather.airport.v1",
+    result = {
+        "schema": "weather99.qweather.airport.v2",
         "provider": "QWeather",
         "role": "supplementary_grid_weather",
         "location": PUDONG.metadata(),
@@ -262,39 +238,7 @@ def collect_airport_qweather(config: QWeatherConfig, target_date: str):
         "attributions": sorted({value for point in points for value in point["attributions"]}),
         "errors": {point["point_id"]: point["errors"] for point in points if point["errors"]},
     }
-
-
-def airport_weather_for_date(bundle, target_date):
-    """Select another day from the same seven-day responses without another HTTP request."""
-    date.fromisoformat(target_date)
-    points = []
-    for point in bundle["points"]:
-        errors = dict(point["errors"])
-        source = point["sources"]["daily"]
-        forecast = None
-        if not source.get("error"):
-            try:
-                payload = source.get("data") or {}
-                if "code" in payload and str(payload["code"]) != "200":
-                    raise ValueError("QWeather returned a business error")
-                forecast = normalize_daily(payload, target_date)
-                errors.pop("daily", None)
-            except (ValueError, KeyError, TypeError, AttributeError) as exc:
-                errors["daily"] = f"invalid_response:{type(exc).__name__}"
-        points.append(
-            {
-                **point,
-                "forecast": forecast,
-                "target_date": target_date,
-                "errors": errors,
-                "complete": forecast is not None and point["current"] is not None and not errors,
-            }
-        )
-    return {
-        **bundle,
-        "target_date": target_date,
-        "points": points,
-        "summary": summarize_points(points),
-        "complete": all(point["complete"] for point in points),
-        "errors": {point["point_id"]: point["errors"] for point in points if point["errors"]},
-    }
+    if include_forecast:
+        result["daily_forecast"] = collect_daily_forecast(config)
+        result["attributions"] = sorted(set(result["attributions"] + result["daily_forecast"]["attributions"]))
+    return result

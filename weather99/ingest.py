@@ -126,7 +126,7 @@ def collect(target_date, output, qweather: QWeatherConfig | None = None, *, auxi
     }
     with ThreadPoolExecutor(max_workers=4) as pool:
         qweather_future = (
-            pool.submit(collect_airport_qweather, qweather, target_date) if qweather else None
+            pool.submit(collect_airport_qweather, qweather, target_date, include_forecast=True) if qweather else None
         )
         futures = {name: pool.submit(fetch, url, params) for name, (url, params) in jobs.items()}
         sources = {name: future.result() for name, future in futures.items()}

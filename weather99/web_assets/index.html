@@ -17,7 +17,7 @@
     <nav aria-label="页面导航">
       <a href="#overview" aria-current="location"><span aria-hidden="true">01</span>运行概览</a>
       <a href="#market"><span aria-hidden="true">02</span>预测与盘口</a>
-      <a href="#weather"><span aria-hidden="true">03</span>机场五点天气</a>
+      <a href="#weather"><span aria-hidden="true">03</span>实时天气与和风预报</a>
       <a href="#account"><span aria-hidden="true">04</span>账户与持仓</a>
       <a href="#logs"><span aria-hidden="true">05</span>运行日志</a>
     </nav>
@@ -44,9 +44,13 @@
       </section>
       <section id="settlement" aria-labelledby="settlement-heading"><div class="section-title"><div><span class="section-index">RESOLUTION SOURCE</span><h2 id="settlement-heading">市场结算依据 · ZSPD</h2></div><span class="section-caption">按各市场原始规则读取</span></div><article class="panel settlement-panel"><div id="settlement-summary" class="panel-footnote"></div><div class="table-wrap" tabindex="0" role="region" aria-labelledby="settlement-heading"><table><thead><tr><th scope="col">市场日期</th><th scope="col">观测时间（北京时间）</th><th scope="col">规则温度 / ℃</th><th scope="col">原始常规 METAR</th></tr></thead><tbody id="settlement-rows"></tbody></table></div><p class="panel-footnote">优先读取 RMK 的 T 段十分之一度温度，无 T 段则读取正文温度；排除 SPECI，按上海自然日取最高值，恰好半度向上取整。日内数据为暂定；模拟账本以 Polymarket 最终裁定结算。Wunderground 兜底尚未采集。</p></article></section>
       <section id="weather" aria-labelledby="weather-title">
-        <div class="section-title"><div><span class="section-index">02 / WEATHER</span><h2 id="weather-title">浦东机场 · 五点采样</h2></div><span id="weather-time" class="section-caption">—</span></div>
+        <div class="section-title"><div><span class="section-index">LIVE / CALIBRATION</span><h2 id="realtime-title">METAR × 和风 · 实时校正</h2></div></div>
+        <article class="panel realtime-panel"><div id="realtime-sources" class="realtime-grid"></div><p id="correction-summary" class="panel-footnote">等待观测和模型对齐。</p><p class="panel-footnote">METAR 来自 AviationWeather 的 ZSPD 常规报文；观测有效期 60 分钟。以同一时刻四模型小时温度计算偏差，只校正当日预测。权重及限幅为待回测研究参数。</p></article>
+        <div class="section-title"><div><span class="section-index">QWEATHER / FORECAST</span><h2 id="daily-title">和风预报 · 浦东中心单点</h2></div><span id="daily-time" class="section-caption">—</span></div>
+        <article class="panel daily-panel"><div class="table-wrap" tabindex="0" role="region" aria-labelledby="daily-title"><table><caption class="sr-only">浦东机场中心未来三天和风预报</caption><thead><tr><th scope="col">日期</th><th scope="col">最高 / 最低温</th><th scope="col">白天 / 夜间</th><th scope="col">预报有效区间（北京时间）</th></tr></thead><tbody id="daily-rows"></tbody></table></div><p class="panel-footnote">仅查询机场中心 31.1443° N / 121.8083° E。保留提供方预报区间，不作为机场实测或结算值；单独展示，不加入四模型向量。</p><p id="weather-attributions" class="panel-footnote"></p></article>
+        <div class="section-title"><div><span class="section-index">02 / WEATHER</span><h2 id="weather-title">浦东机场 · 五点当前温度</h2></div><span id="weather-time" class="section-caption">—</span></div>
         <div id="weather-points" class="weather-grid"><div class="panel empty">等待和风天气数据</div></div>
-        <p class="section-footnote">数据来源：<a href="https://www.qweather.com/" target="_blank" rel="noreferrer">和风天气 QWeather</a>。五点属于同一提供方的相邻网格，不作为五个独立模型，也不替代 ZSPD 机场实测。预报高低温对应采集目标日。</p>
+        <p class="section-footnote">数据来源：<a href="https://www.qweather.com/" target="_blank" rel="noreferrer">和风天气 QWeather</a>。五点属于同一提供方的相邻网格，不作为五个独立模型，也不替代 ZSPD 机场实测。</p>
       </section>
       <section id="account" aria-labelledby="account-title">
         <div class="section-title"><div><span class="section-index">03 / ACCOUNT</span><h2 id="account-title">账户与持仓</h2></div><span class="account-label">本地模拟账户</span></div>

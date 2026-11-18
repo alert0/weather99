@@ -15,8 +15,9 @@ from .config import load_config
 from .domain import SHANGHAI, ForecastEstimate, digest, finite, model_vector, timestamp
 from .forecasting import ModelArtifact
 from .ingest import collect
+from .nowcast import correct_forecast
 from .paper_ledger import PaperLedger
-from .qweather import QWeatherConfig, airport_weather_for_date, collect_airport_qweather
+from .qweather import QWeatherConfig, collect_airport_qweather
 from .service import analyze
 from .storage import AuditStore
 
@@ -170,6 +171,12 @@ def process_capture(raw, capture_path, settings, strategy, strategy_raw, ledger,
             with AuditStore(audit_path) as store:
                 store.register(model.version, "paper_baseline", model.definition)
         snapshot = live_snapshot(raw, model, layer)
+        _, correction = correct_forecast(raw, model.predict(raw["forecast"]["models_c"]), snapshot.observed_max_c)
+        if correction["status"] == "applied":
+            with AuditStore(audit_path) as store:
+                store.register(snapshot.forecast.model_version, "intraday_correction", {
+                    "base_model_version": model.version, "parameters": correction["parameters"],
+                })
         signal = analyze(
             snapshot,
             strategy,
@@ -195,6 +202,7 @@ def process_capture(raw, capture_path, settings, strategy, strategy_raw, ledger,
                 "sigma_c": snapshot.forecast.sigma_c,
                 "method": snapshot.forecast.method,
             },
+            "correction": correction,
             "selected": signal["selected"],
             "best_candidate": signal["candidates"][0] if signal["candidates"] else None,
         }
@@ -250,7 +258,7 @@ def run(run_dir=DEFAULT_RUN_DIR, settings_path=DEFAULT_PAPER_CONFIG, *, once=Fal
                 try:
                     credentials = QWeatherConfig.from_env()
                     if credentials:
-                        weather_bundle = collect_airport_qweather(credentials, str(today))
+                        weather_bundle = collect_airport_qweather(credentials, str(today), include_forecast=True)
                         weather_path = (
                             run_dir
                             / "weather"
@@ -283,9 +291,7 @@ def run(run_dir=DEFAULT_RUN_DIR, settings_path=DEFAULT_PAPER_CONFIG, *, once=Fal
                         capture_path, raw = collect(
                             target,
                             run_dir / "snapshots",
-                            auxiliary_weather={
-                                "qweather": airport_weather_for_date(weather_bundle, target)
-                            }
+                            auxiliary_weather={"qweather": weather_bundle}
                             if weather_bundle
                             else None,
                         )
