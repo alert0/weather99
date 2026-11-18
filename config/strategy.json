@@ -1,0 +1,39 @@
+{
+  "schema": "weather99.strategy.v1",
+  "source": "doc/strategy_680665_config.json",
+  "entry": {
+    "max_buckets": 3,
+    "probability_threshold": {"24h": 0.55, "12h": 0.50, "6h": 0.50, "3h": 0.52},
+    "edge_threshold": {"24h": 0.05, "12h": 0.03, "6h": 0.02, "3h": 0.02},
+    "must_include_market_mode": true,
+    "mode_gap_max_c": 2,
+    "extreme_disagreement_c": 6,
+    "market_weight_cap": 0.85,
+    "confirmations": 2,
+    "fee_reserve": 0.01,
+    "slippage_reserve": 0.005
+  },
+  "risk": {"daily_loss_limit_usd": -5, "consecutive_loss_limit": 3, "drawdown_halt": 0.30},
+  "research_assumptions": {
+    "market_weight": 0.55,
+    "ask_min": 0.01,
+    "ask_max": 0.99,
+    "max_spread": 0.10,
+    "quote_max_age_seconds": 300,
+    "confirmation_max_gap_seconds": 1800,
+    "max_market_buckets": 32,
+    "probability_family": "normal_integer_rounding",
+    "market_probability": "normalized_provided_yes_prices",
+    "net_edge": "weather_probability_minus_ask_cost_minus_fixed_reserves",
+    "disagreement": "maximum_minus_minimum"
+  },
+  "training": {
+    "rolling_days": 60,
+    "ridge_days": 540,
+    "min_samples": 60,
+    "ridge_alpha": 3.0,
+    "sigma_intercept": 0.4994,
+    "sigma_disagreement_coefficient": 0.072,
+    "sigma_floor_c": 0.1
+  }
+}

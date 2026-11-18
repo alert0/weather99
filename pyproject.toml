@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weather99"
+version = "0.2.0"
+description = "Replayable Shanghai weather probability research engine"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2.0,<3"]
+
+[project.optional-dependencies]
+qweather-jwt = ["cryptography>=45,<50"]
+
+[project.scripts]
+weather99 = "weather99.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["weather99*"]
+
+[tool.setuptools.package-data]
+weather99 = ["web_assets/*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

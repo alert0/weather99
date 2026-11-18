@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Weather99 — 浦东天气监控</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+  <script src="/settlement.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到监控内容</a>
+  <aside class="sidebar">
+    <a class="brand" href="#overview" aria-label="Weather99 首页"><span class="brand-mark">W<span>99</span></span><span>WEATHER99<small>天气 · 概率 · 市场</small></span></a>
+    <div class="workspace-label">监控工作台 <span>LOCAL</span></div>
+    <nav aria-label="页面导航">
+      <a href="#overview" aria-current="location"><span aria-hidden="true">01</span>运行概览</a>
+      <a href="#market"><span aria-hidden="true">02</span>预测与盘口</a>
+      <a href="#weather"><span aria-hidden="true">03</span>机场五点天气</a>
+      <a href="#account"><span aria-hidden="true">04</span>账户与持仓</a>
+      <a href="#logs"><span aria-hidden="true">05</span>运行日志</a>
+    </nav>
+    <div class="sidebar-bottom"><div class="station-label">ZSPD <span>上海浦东</span></div><p>31.1443° N<br>121.8083° E</p><div class="sidebar-note">连接真实数据源<br>交易记入本地模拟账本</div></div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span>天气预测市场 <span class="slash">/</span> <strong>上海浦东</strong></span><div class="topbar-actions"><span id="health" class="status-pill">正在连接</span><button id="refresh" type="button">刷新数据 <span aria-hidden="true">↻</span></button></div></header>
+    <main id="main" tabindex="-1">
+      <section id="overview" aria-labelledby="overview-title">
+        <div class="page-heading"><div><p class="eyebrow">PUDONG WEATHER OBSERVATORY</p><h1 id="overview-title">每一度，都有依据<span class="heading-dot">.</span></h1><p class="intro">浦东机场天气与预测市场，一屏看清预测、价格和入场条件。</p></div><div class="page-time"><span>北京时间 · UTC+8</span><strong id="clock">—</strong></div></div>
+        <div id="error" class="error" role="alert" hidden></div>
+        <div class="source-strip"><span class="source-label">真实数据源</span><span>和风天气</span><span>Open-Meteo</span><span>Polymarket</span><span class="source-hint">天气 / 行情来自实际采集 · 概率为模型估计</span></div>
+        <div class="overview-layout">
+          <article class="panel decision-panel" aria-labelledby="decision-title">
+            <div class="panel-header"><h2 id="decision-title">最新入场评估</h2><label class="date-control">市场日期 <select id="date-select" aria-label="选择评估市场日期"><option>等待数据</option></select></label></div>
+            <div id="decision"><div class="empty">正在读取采集记录…</div></div>
+          </article>
+          <article class="panel runtime-panel"><div class="panel-header"><h2>采集状态</h2><span id="phase" class="subtle">—</span></div><dl id="runtime"><dt>连接状态</dt><dd>等待本地服务</dd></dl><p id="model-note" class="model-note">正在读取模型状态。</p><div class="runtime-foot">页面每 10 秒更新 · 天气采集按配置运行</div></article>
+        </div>
+      </section>
+      <section id="market" aria-labelledby="market-title">
+        <div class="section-title"><div><span class="section-index">01 / MARKET</span><h2 id="market-title">预测与真实盘口</h2></div><span id="quote-time" class="section-caption">—</span></div>
+        <div class="panel"><div id="model-values" class="model-values"></div><div class="table-toolbar"><span><i class="legend weather-legend"></i>天气概率估计 <i class="legend market-legend"></i>市场隐含概率</span><span class="subtle">价格单位 USD / 份</span></div><div class="table-wrap" tabindex="0" role="region" aria-label="预测概率与订单簿，可横向滚动"><table class="quote-table"><caption class="sr-only">当前市场日期的温度档、概率与真实买卖报价</caption><thead><tr><th scope="col">温度档</th><th scope="col">天气概率估计</th><th scope="col">市场隐含概率</th><th scope="col">买一价</th><th scope="col">卖一价</th><th scope="col">档位标记</th></tr></thead><tbody id="quote-rows"><tr><td colspan="6" class="empty">等待盘口数据</td></tr></tbody></table></div><p class="panel-footnote">市场隐含概率来自提供方 Yes 价格归一化，并非可成交价。横线表示暂无数据；“无报价”表示该侧订单簿为空。</p></div>
+      </section>
+      <section id="settlement" aria-labelledby="settlement-heading"><div class="section-title"><div><span class="section-index">RESOLUTION SOURCE</span><h2 id="settlement-heading">市场结算依据 · ZSPD</h2></div><span class="section-caption">按各市场原始规则读取</span></div><article class="panel settlement-panel"><div id="settlement-summary" class="panel-footnote"></div><div class="table-wrap" tabindex="0" role="region" aria-labelledby="settlement-heading"><table><thead><tr><th scope="col">市场日期</th><th scope="col">观测时间（北京时间）</th><th scope="col">规则温度 / ℃</th><th scope="col">原始常规 METAR</th></tr></thead><tbody id="settlement-rows"></tbody></table></div><p class="panel-footnote">优先读取 RMK 的 T 段十分之一度温度，无 T 段则读取正文温度；排除 SPECI，按上海自然日取最高值，恰好半度向上取整。日内数据为暂定；模拟账本以 Polymarket 最终裁定结算。Wunderground 兜底尚未采集。</p></article></section>
+      <section id="weather" aria-labelledby="weather-title">
+        <div class="section-title"><div><span class="section-index">02 / WEATHER</span><h2 id="weather-title">浦东机场 · 五点采样</h2></div><span id="weather-time" class="section-caption">—</span></div>
+        <div id="weather-points" class="weather-grid"><div class="panel empty">等待和风天气数据</div></div>
+        <p class="section-footnote">数据来源：<a href="https://www.qweather.com/" target="_blank" rel="noreferrer">和风天气 QWeather</a>。五点属于同一提供方的相邻网格，不作为五个独立模型，也不替代 ZSPD 机场实测。预报高低温对应采集目标日。</p>
+      </section>
+      <section id="account" aria-labelledby="account-title">
+        <div class="section-title"><div><span class="section-index">03 / ACCOUNT</span><h2 id="account-title">账户与持仓</h2></div><span class="account-label">本地模拟账户</span></div>
+        <div class="metrics"><article><span>账户权益 <small>USD</small></span><strong id="equity">—</strong><p id="return">等待账户数据</p></article><article><span>可用现金 <small>USD</small></span><strong id="cash">—</strong><p>可用于下一次模拟入场</p></article><article><span>当日已实现盈亏 <small>USD</small></span><strong id="pnl">—</strong><p>含已记账费用</p></article><article><span>未结算持仓 <small>个</small></span><strong id="positions-count">—</strong><p id="valuation">等待估值状态</p></article></div>
+        <article class="panel chart-panel"><div class="panel-header"><h3>账户权益曲线</h3><span class="subtle">最近 240 个采集时间点</span></div><div id="chart" class="chart"><div class="empty">等待账本数据</div></div><p class="panel-footnote">按本地账本现金与当时持仓报价估值还原，未知报价部分按零估值。</p></article>
+        <article class="panel positions-panel"><div class="panel-header"><h3>持仓与结算记录</h3><span class="subtle">真实采集行情下的模拟成交</span></div><div class="table-wrap" tabindex="0" role="region" aria-label="模拟持仓记录，可横向滚动"><table><caption class="sr-only">模拟持仓与结算记录</caption><thead><tr><th scope="col">市场日期</th><th scope="col">建立时间</th><th scope="col">每档份数</th><th scope="col">档数</th><th scope="col">成本 / USD</th><th scope="col">费用预留</th><th scope="col">结算收入</th><th scope="col">状态</th></tr></thead><tbody id="position-rows"><tr><td colspan="8" class="empty">等待持仓数据</td></tr></tbody></table></div></article>
+      </section>
+      <section id="logs" aria-labelledby="logs-title"><div class="section-title"><div><span class="section-index">04 / ACTIVITY</span><h2 id="logs-title">运行日志</h2></div><label class="filter-label">记录筛选 <select id="log-filter"><option value="all">全部记录</option><option value="blocked">采集 / 检查异常</option><option value="paper_filled">模拟成交</option><option value="rejected">未入场</option></select></label></div><article class="panel"><div class="table-wrap logs-wrap" tabindex="0" role="region" aria-label="最近八十条运行日志，可滚动"><table><caption class="sr-only">最近 80 条采集与评估日志</caption><thead><tr><th scope="col">北京时间</th><th scope="col">市场日期</th><th scope="col">状态</th><th scope="col">评估结论</th></tr></thead><tbody id="log-rows"><tr><td colspan="4" class="empty">等待日志数据</td></tr></tbody></table></div></article></section>
+      <footer><span>WEATHER99 <span class="footer-dot">/</span> 用数据理解天气，用条件约束交易。</span><span id="updated">正在连接本地监控服务</span><span id="refresh-status" class="sr-only" role="status" aria-live="polite"></span></footer>
+    </main>
+  </div>
+</body>
+</html>

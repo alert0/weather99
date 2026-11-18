@@ -1,0 +1,12 @@
+{
+  "schema": "weather99.paper.v1",
+  "initial_cash_usd": 50.0,
+  "position_budget_usd": 5.0,
+  "shares_per_bucket": 5,
+  "max_open_positions": 2,
+  "interval_seconds": 180,
+  "model_mode": "equal_weight_baseline",
+  "baseline_sigma_c": 1.5,
+  "trained_models": {},
+  "target_offsets_days": [0, 1]
+}

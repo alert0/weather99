@@ -1,0 +1,3 @@
+[submodule "vendor/PolyWeather"]
+	path = vendor/PolyWeather
+	url = https://github.com/yangyuan-zhen/PolyWeather.git
