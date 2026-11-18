@@ -2,6 +2,7 @@
 
 import unittest
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime
 
 from weather99.domain import MODELS, ForecastEstimate
@@ -23,9 +24,9 @@ class HourlyShadowTests(unittest.TestCase):
                     "rawOb": "METAR ZSPD 180230Z 00000KT 20/14 RMK T02000140",
                 }]},
                 "forecast": {"data": {"hourly": {
-                    "time": ["2026-11-18T10:00", "2026-11-18T11:00",
-                             "2026-11-18T12:00", "2026-11-18T13:00"],
-                    **{f"temperature_2m_{m}": [18, 19, 20, 21] for m in MODELS},
+                    "time": [f"2026-11-18T{hour:02d}:00" for hour in range(24)],
+                    **{f"temperature_2m_{m}": [17] * 10 + [18, 19, 20, 21] + [17] * 10
+                       for m in MODELS},
                 }}},
             },
             "auxiliary_weather": {},
@@ -36,7 +37,7 @@ class HourlyShadowTests(unittest.TestCase):
         result = hourly_tmax_shadow(self.raw, self.baseline, 20)
         self.assertEqual(result["status"], "shadow_ready")
         self.assertFalse(result["trade_eligible"])
-        self.assertEqual(len(result["hours"]), 3)
+        self.assertEqual(len(result["hours"]), 13)
         self.assertAlmostEqual(result["metar_residual_c"], 1.5)
         self.assertGreater(result["predicted_final_high_c"], 21)
         self.assertGreater(result["hours"][0]["shift_c"], result["hours"][-1]["shift_c"])
@@ -74,13 +75,39 @@ class HourlyShadowTests(unittest.TestCase):
         self.assertFalse(output["qweather_used"])
         self.assertAlmostEqual(output["combined_residual_c"], 1.5)
 
-    def test_incomplete_future_model_hour_and_stale_metar_fail_closed(self):
-        raw = deepcopy(self.raw)
-        raw["sources"]["forecast"]["data"]["hourly"][f"temperature_2m_{MODELS[0]}"].pop()
-        self.assertEqual(
-            hourly_tmax_shadow(raw, self.baseline, 20)["status"],
-            "future_hourly_model_missing",
-        )
+    def test_incomplete_target_day_curve_fails_closed(self):
+        for problem in ("missing future row", "missing past reading", "short model series",
+                        "duplicate hour", "off-hour timestamp"):
+            with self.subTest(problem=problem):
+                raw = deepcopy(self.raw)
+                hourly = raw["sources"]["forecast"]["data"]["hourly"]
+                series = hourly[f"temperature_2m_{MODELS[0]}"]
+                if problem == "missing future row":
+                    for values in hourly.values():
+                        values.pop(13)
+                elif problem == "missing past reading":
+                    series[9] = None
+                elif problem == "short model series":
+                    series.pop()
+                elif problem == "duplicate hour":
+                    for values in hourly.values():
+                        values.append(values[13])
+                    hourly["time"][-1] = "2026-11-18T05:00:00Z"
+                else:
+                    hourly["time"][13] = "2026-11-18T13:15"
+
+                result = hourly_tmax_shadow(raw, self.baseline, 20)
+                self.assertEqual(result["status"], "target_day_hourly_path_incomplete")
+                self.assertEqual(result["hours"], [])
+                self.assertNotIn("predicted_final_high_c", result)
+
+    def test_model_available_after_capture_fails_closed(self):
+        baseline = replace(self.baseline, available_at="2026-11-18T02:45:01Z")
+        result = hourly_tmax_shadow(self.raw, baseline, 20)
+        self.assertEqual(result["status"], "model_not_available_at_snapshot")
+        self.assertNotIn("predicted_final_high_c", result)
+
+    def test_stale_metar_fails_closed(self):
         raw = deepcopy(self.raw)
         raw["collected_at"] = "2026-11-18T13:45:00+08:00"
         self.assertEqual(

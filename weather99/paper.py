@@ -176,7 +176,15 @@ def process_capture(raw, capture_path, settings, strategy, strategy_raw, ledger,
         _, correction = correct_forecast(raw, baseline_forecast, snapshot.observed_max_c)
         # Auxiliary research must never veto the existing Paper evaluation.
         try:
-            hourly_shadow = hourly_tmax_shadow(raw, baseline_forecast, snapshot.observed_max_c)
+            settlement = raw.get("settlement") or {}
+            verified_high = None
+            if (
+                settlement.get("rules_verified") is True
+                and settlement.get("station") == snapshot.station
+                and settlement.get("target_date") == target
+            ):
+                verified_high = snapshot.observed_max_c
+            hourly_shadow = hourly_tmax_shadow(raw, baseline_forecast, verified_high)
         except Exception:
             LOGGER.exception("non-trading hourly shadow failed; Paper path continues")
             hourly_shadow = {
